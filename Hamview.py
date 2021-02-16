@@ -2,6 +2,7 @@ import os
 import numpy as np
 import systemConst
 import matplotlib.pyplot as plt
+import japanize_matplotlib
 from systemConst import transmon,Tunabletransmon,QQ
 
 iDir=os.path.abspath(os.path.dirname(__file__))
@@ -56,13 +57,31 @@ firstlevel=tXmon1.calcNthlevelenergy(EC1,EJ1,10,1)[1]
 secondlevel=tXmon1.calcNthlevelenergy(EC1,EJ1,10,2)[1]
 thirdlevel=tXmon1.calcNthlevelenergy(EC1,EJ1,10,3)[1]
 fig,ax=plt.subplots()
-ax.plot(philist,zerolevel,label='zero level')
-ax.plot(philist,firstlevel,label='1st level')
-ax.plot(philist,secondlevel,label='2nd level')
+ax.plot(philist,zerolevel,linewidth=5)
+ax.plot(philist,firstlevel,linewidth=5)
+ax.plot(philist,secondlevel,linewidth=5)
 #ax.plot(philist,thirdlevel,label='3rd level')
-ax.set_xlabel('phi/pi')
-ax.legend(fontsize=13)
-ax.set_xticks([-1, -0.5, 0, 0.5, 1])
-ax.set_title('Enegydiagram(xaxis=phi)')
-ax.set_ylabel('Frequency[GHz]')
-plt.savefig(iDir+'/levels2.png')
+ax.set_xlabel('$\pi \Phi/\Phi_0$',fontsize=18)
+ax.legend(fontsize=18,loc='upper right')
+ax.set_xlim([-0.3,0.3])
+#ax.set_xticks([-1, -0.5, 0, 0.5, 1])
+#ax.set_title('量子ビットの外部磁場応答',fontsize=18)
+#ax.set_ylabel('周波数[GHz]',fontsize=18)
+plt.savefig('C:/Users/Sota/Master_thesis/img/levels_tune_happyoyo.png')
+
+philist,zerolevel=tXmon2.calcNthlevelenergy(EC2,EJ2,10,0)
+firstlevel=tXmon2.calcNthlevelenergy(EC2,EJ2,10,1)[1]
+secondlevel=tXmon2.calcNthlevelenergy(EC2,EJ2,10,2)[1]
+thirdlevel=tXmon1.calcNthlevelenergy(EC1,EJ1,10,3)[1]
+fig,ax=plt.subplots()
+ax.plot(philist,zerolevel,linewidth=5)
+ax.plot(philist,firstlevel,linewidth=5)
+ax.plot(philist,secondlevel,linewidth=5)
+#ax.plot(philist,thirdlevel,label='3rd level')
+ax.set_xlabel('$\pi \Phi/\Phi_0$',fontsize=18)
+ax.legend(fontsize=18,loc='upper right')
+ax.set_xlim([-0.3,0.3])
+#ax.set_xticks([-1, -0.5, 0, 0.5, 1])
+#ax.set_title('量子ビットの外部磁場応答',fontsize=18)
+#ax.set_ylabel('周波数[GHz]',fontsize=18)
+plt.savefig('C:/Users/Sota/Master_thesis/img/levels_tune_happyoyo2.png')

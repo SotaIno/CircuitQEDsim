@@ -165,9 +165,9 @@ class CZpulse():
 
         for i,freq in enumerate(freqs):
             if i<=len(freqs)/2:
-                _current[i]=np.arccos(((freq-abs(self.anh2))**2/(self.fq2-abs(self.anh2))**2))/pi
+                _current[i]=np.arccos(((freq-abs(self.anh2))**2/(self.fq2-abs(self.anh2))**2))/pi #[phi_0]
             else:
-                _current[i]=-np.arccos(((freq-abs(self.anh2))**2/(self.fq2-abs(self.anh2))**2))/pi
+                _current[i]=-np.arccos(((freq-abs(self.anh2))**2/(self.fq2-abs(self.anh2))**2))/pi #[phi_0]
         current=(_current+offset)/M
 
         if PLOT==True:
@@ -183,7 +183,7 @@ class CZpulse():
     def flux_to_Q2freq(self,phi,offset=0):
         return (self.fq2-abs(self.anh2))*np.sqrt(np.cos((phi+offset)*pi))+abs(self.anh2)
     
-    def flux_to_pulse(self,offset=0,M=1,pulsetype='Adiabatic',PLOT=False):
+    def current_to_freq(self,offset=0,M=1,pulsetype='Adiabatic',PLOT=False):
         if pulsetype=='Adiabatic':
             t_list = self.adiabaticcurrent(M=M,offset=offset)[0]
             pulse = (self.fq2-abs(self.anh2))*np.sqrt(abs(np.cos(self.adiabaticcurrent(M=M,offset=offset)[1]*pi)))+abs(self.anh2)
@@ -194,7 +194,7 @@ class CZpulse():
         if PLOT==True:
             plt.figure()
             plt.plot(t_list,pulse)
-            plt.ylim([self.qFreq20-0.1,self.fq2+0.1])
+            #plt.ylim([self.qFreq20-0.1,self.fq2+0.1])
             plt.hlines(self.qFreq20,0,self.tg,linestyle='dashed')
             plt.title(pulsetype+' pulse-{:.1f}ns'.format(self.tg))
             plt.xlabel('t[ns]')
@@ -203,8 +203,72 @@ class CZpulse():
 
         return t_list,pulse
 
-    def inversefilter(self): #Zhouさんのメソッドを用いて補正していく予定
-        return 0
+    def inversefiltered_pulse(self,pulse,loadpath=None,PLOT=False,savepath=None): #Zhouさんのメソッドを用いて補正していく予定
+        if loadpath is None:
+            self.FIRfilter=np.load('C:/Sota_Ino/Tsai_Lab/fir_coe.npy')
+        else:
+            self.FIRfilter=np.load(loadpath)
+        
+        fs=len(pulse)
+        t = np.arange(0,fs)
+        print(len(t),len(pulse))
+        d = np.zeros(fs)
+        b = self.FIRfilter
+        for i in range(fs):
+            d[i] = 0
+            for j in range(len(b)):
+                if(i-j)>=0:
+                    d[i] += b[j]*pulse[i-j]
+        
+        if PLOT is True:
+            plt.figure()
+            plt.plot(t,pulse)
+            plt.plot(t,d)
+            plt.show()
+            if savepath is not None:
+                plt.savefig(savepath)
+            else:
+                pass
+        
+        Filteredcurrent=d
+
+        return Filteredcurrent
+
+    def cancellationcurrent(self,m11,m12,m21,m22,Ioffset1,Ioffset2,pulsetype='Adiabatic',PLOT=False): #バイアスライン2から1のm: m12, バイアスライン1から2のm:m21
+        canc_coeff = m22-(m12*m21)/m11
+        if pulsetype=='Adiabatic':
+            t_list,adiabaticcurrent = self.adiabaticcurrent()
+            I_tune = adiabaticcurrent/canc_coeff + (m21*Ioffset1-m22*Ioffset2)/canc_coeff
+            I_cancel = -m12/m11*I_tune+Ioffset1
+        elif pulsetype=='Net-Zero':
+            t_list,netzerocurrent = self.netzerocurrent()
+            I_tune = netzerocurrent/canc_coeff + (m21*Ioffset1-m22*Ioffset2)/canc_coeff
+            I_cancel = -m12/m11*I_tune+Ioffset1
+        
+        pulseheight = abs(max(I_tune)-min(I_tune))/2
+
+        if PLOT is True:
+            fig = plt.figure()
+            ax1 = fig.add_subplot(111)
+            ax1.plot(t_list,I_tune,label='I_tune',color='blue')
+            ax1.set_ylim([min(I_tune)-pulseheight*0.25,max(I_tune)+pulseheight*0.25])
+
+            ax2 = ax1.twinx()
+            ax2.plot(t_list,I_cancel,label='I_cancel',color='r')
+            ax2.set_ylim([min(I_tune)-pulseheight*0.25,max(I_tune)+pulseheight*0.25])
+
+            h1, l1 = ax1.get_legend_handles_labels()
+            h2, l2 = ax2.get_legend_handles_labels()
+            ax1.legend(h1+h2, l1+l2, loc='lower right')
+
+            ax1.set_xlabel('t')
+            ax1.set_ylabel('Tune pulse[mA]')
+            ax1.grid(True)
+            ax2.set_ylabel('Cancel pulse[mA]')
+            plt.show()
+
+        return t_list, [I_tune,I_cancel]
+    
 
 if __name__=='__main__':
     #Hamiltonian Component
