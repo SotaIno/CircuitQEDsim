@@ -168,7 +168,7 @@ class CZpulse():
                 _current[i]=np.arccos(((freq-abs(self.anh2))**2/(self.fq2-abs(self.anh2))**2))/pi #[phi_0]
             else:
                 _current[i]=-np.arccos(((freq-abs(self.anh2))**2/(self.fq2-abs(self.anh2))**2))/pi #[phi_0]
-        current=(_current+offset)/M
+        current=(_current+offset)/M #Mの単位は
 
         if PLOT==True:
             plt.figure()
@@ -179,61 +179,19 @@ class CZpulse():
             plt.show()
 
         return t_list,current
-
-    def flux_to_Q2freq(self,phi,offset=0):
-        return (self.fq2-abs(self.anh2))*np.sqrt(np.cos((phi+offset)*pi))+abs(self.anh2)
     
-    def current_to_freq(self,offset=0,M=1,pulsetype='Adiabatic',PLOT=False):
-        if pulsetype=='Adiabatic':
-            t_list = self.adiabaticcurrent(M=M,offset=offset)[0]
-            pulse = (self.fq2-abs(self.anh2))*np.sqrt(abs(np.cos(self.adiabaticcurrent(M=M,offset=offset)[1]*pi)))+abs(self.anh2)
-        elif pulsetype=='Net-Zero':
-            t_list = self.netzerocurrent(M=M,offset=offset)[0]
-            pulse = (self.fq2-abs(self.anh2))*np.sqrt(abs(np.cos(self.netzerocurrent(M=M,offset=offset)[1]*pi)))+abs(self.anh2)
-        
+    def current_to_flux(self,t_list,current1,current2=0,Ioffset=0,m=1,mleak=0,PLOT=False,Qlabel='2'):
+        flux = m*(current1-Ioffset)+mleak*current2 #mの単位は[Φ0/mA]
         if PLOT==True:
             plt.figure()
-            plt.plot(t_list,pulse)
-            #plt.ylim([self.qFreq20-0.1,self.fq2+0.1])
-            plt.hlines(self.qFreq20,0,self.tg,linestyle='dashed')
-            plt.title(pulsetype+' pulse-{:.1f}ns'.format(self.tg))
+            plt.plot(t_list,flux)
+            plt.title('Flux on Q2(Net-Zero)')
             plt.xlabel('t[ns]')
-            plt.ylabel('frequency[GHz]')
+            plt.ylabel('Iq{}[a.u.]'.format(Qlabel))
             plt.show()
 
-        return t_list,pulse
-
-    def inversefiltered_pulse(self,pulse,loadpath=None,PLOT=False,savepath=None): #Zhouさんのメソッドを用いて補正していく予定
-        if loadpath is None:
-            self.FIRfilter=np.load('C:/Sota_Ino/Tsai_Lab/fir_coe.npy')
-        else:
-            self.FIRfilter=np.load(loadpath)
+        return t_list,flux
         
-        fs=len(pulse)
-        t = np.arange(0,fs)
-        print(len(t),len(pulse))
-        d = np.zeros(fs)
-        b = self.FIRfilter
-        for i in range(fs):
-            d[i] = 0
-            for j in range(len(b)):
-                if(i-j)>=0:
-                    d[i] += b[j]*pulse[i-j]
-        
-        if PLOT is True:
-            plt.figure()
-            plt.plot(t,pulse)
-            plt.plot(t,d)
-            plt.show()
-            if savepath is not None:
-                plt.savefig(savepath)
-            else:
-                pass
-        
-        Filteredcurrent=d
-
-        return Filteredcurrent
-
     def cancellationcurrent(self,m11,m12,m21,m22,Ioffset1,Ioffset2,pulsetype='Adiabatic',PLOT=False): #バイアスライン2から1のm: m12, バイアスライン1から2のm:m21
         canc_coeff = m22-(m12*m21)/m11
         if pulsetype=='Adiabatic':
@@ -268,6 +226,70 @@ class CZpulse():
             plt.show()
 
         return t_list, [I_tune,I_cancel]
+
+    def flux_to_Qfreq(self,phi,offset=0,Qlabel='1'):
+        return (self.fq2-abs(self.anh2))*np.sqrt(np.cos((phi+offset)*pi))+abs(self.anh2)
+    
+    def current_to_freq(self,offset=0,M=1,m11=1,m12=0,m21=0,m22=1,pulsetype='Adiabatic',Ioffset1=0,Ioffset2=0,PLOT=False):
+        if pulsetype=='Adiabatic':
+            t_list = self.adiabaticcurrent(M=M,offset=offset)[0]
+            pulse = (self.fq2-abs(self.anh2))*np.sqrt(abs(np.cos(self.adiabaticcurrent(M=M,offset=offset)[1]*pi)))+abs(self.anh2)
+            return t_list,pulse
+        elif pulsetype=='Net-Zero':
+            t_list = self.netzerocurrent(M=M,offset=offset)[0]
+            pulse = (self.fq2-abs(self.anh2))*np.sqrt(abs(np.cos(self.netzerocurrent(M=M,offset=offset)[1]*pi)))+abs(self.anh2)
+            return t_list,pulse
+        elif pulsetype =='Cancellaton':
+            canc = self.cancellationcurrent(m11,m12,m21,m22,Ioffset1,Ioffset2,PLOT=False)
+            t_list = canc[0]
+            pulse_tune = (self.fq2-abs(self.anh2))*np.sqrt(abs(np.cos(canc[1][0])))+abs(self.anh2)
+            pulse_canc = (self.fq1-abs(self.anh1))*np.sqrt(abs(np.cos(canc[1][1])))+abs(self.anh1)
+            return t_list,[pulse_tune,pulse_canc]
+        
+        if PLOT==True:
+            plt.figure()
+            plt.plot(t_list,pulse)
+            #plt.ylim([self.qFreq20-0.1,self.fq2+0.1])
+            plt.hlines(self.qFreq20,0,self.tg,linestyle='dashed')
+            plt.title(pulsetype+' pulse-{:.1f}ns'.format(self.tg))
+            plt.xlabel('t[ns]')
+            plt.ylabel('frequency[GHz]')
+            plt.show()
+
+        
+
+    def inversefiltered_pulse(self,pulse,loadpath=None,PLOT=False,savepath=None): #Zhouさんのメソッドを用いて補正していく予定
+        if loadpath is None:
+            self.FIRfilter=np.load('C:/Sota_Ino/Tsai_Lab/fir_coe.npy')
+        else:
+            self.FIRfilter=np.load(loadpath)
+        
+        fs=len(pulse)
+        t = np.arange(0,fs)
+        print(len(t),len(pulse))
+        d = np.zeros(fs)
+        b = self.FIRfilter
+        for i in range(fs):
+            d[i] = 0
+            for j in range(len(b)):
+                if(i-j)>=0:
+                    d[i] += b[j]*pulse[i-j]
+        
+        if PLOT is True:
+            plt.figure()
+            plt.plot(t,pulse)
+            plt.plot(t,d)
+            plt.show()
+            if savepath is not None:
+                plt.savefig(savepath)
+            else:
+                pass
+        
+        Filteredcurrent=d
+
+        return Filteredcurrent
+
+    
     
 
 if __name__=='__main__':

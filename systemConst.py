@@ -205,7 +205,7 @@ class transmon():
 
 
 class Tunabletransmon():
-    def __init__(self, EC=10, EJmax=0.3, phi=0, f01=None, alpha=None, N=10, Nq=3, Temp=20e-3):
+    def __init__(self, EC=10, EJmax=0.3, phi=0, f01=None, alpha=None, N=10, Nq=3, Temp=20e-3): #phiの単位は[/Φ0]
         # Unit in [GHz]
         if f01 is None and alpha is None:
             self.EC = EC
